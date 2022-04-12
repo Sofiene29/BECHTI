@@ -26,42 +26,63 @@
 
 		
 		
-;DFT_ModuleAuCarre( short int * Signal64ech, char k) { 
+;DFT_ModuleAuCarre(short int *Signal64ech, char k)
 DFT_ModuleAuCarre proc
-	;r0 Adresse Signal64ech 
-	;r1 k  
-	
-;for(int n=0;n<64;n++) 
-	mov r2,#0     ; n
-boucle  
-	cmp r2,#64
-	bge FinBoucle  
+	;r0 : @ Signal64ech
+	;r1 : k
+	;r2 : compteur de la boucle (n)
+	;r3 : indice du TabCos ou TabSin (k*n%64)
+	;r4 : @ du TabCos ou TabSin
+	;r5 : TabCos[n*k] ou TabSin[n*k]
+	;r6 : Signal64ech[n]
+	;r7 : Signal64ech[n]*TabCos[n*k] OU TabSin[n*k]
+	;r8 : Xreel
+	;r9 : Xim
+
+
+	push {r4-r11}
+	mov r8,#0 
+	mov r9,#0
+	;for (int n =0 ; n<64; n++)
+	mov r2, #0 ; int n = 0
+Boucle
+	cmp r2, #64 ; n<64
+	bge FinBoucle
 	mul r3, r1, r2 ; n*k
-	and r3, #0x03F  ; nk%64 (01F =0...011 1111)  
-	add r2,#1 ;i++ 
-	b boucle
-	
-	
+	and r3, #0x03F ; (n*k)%64 ==> on masque les 6 bits de poids faible
+
+	;;;;;;;Loads;;;;;;;;;;;;;;;;;;;;;;;
+
+	ldrsh r6, [r0, r2, lsl #1] ;load Signal64ech[n] ==> formalisme 4.12 : 16 bits
+
+	;;;;;;;Calcul partie Réelle;;;;;;;;;
+	ldr r4,=TabCos ;load TabCos
+	ldrsh r5, [r4, r3,lsl #1] ;load TabCos[nk%64] ==> formalisme 1.15 : 16 bits
+
+	mul r7, r5, r6 ; Signal64ech[n]*TabCos[n*k]
+	add r8, r7 ; Xreel += Signal64ech[n]*TabCos[n*k]
+
+	;;;;;;;Calcul partie Imaginaire;;;;;;;;;
+	ldr r4,=TabSin ;load TabSin
+	ldrsh r5, [r4, r3,lsl #1] ;load TabSin[nk%64] ==> formalisme 1.15 : 16 bits
+
+	mul r7, r5, r6 ; Signal64ech[n]*TabSin[n*k]
+	add r9, r7 ; Xim += Signal64ech[n]*TabSin[n*k]
+
+	add r2, #1 ; n++
+	b Boucle
+
 FinBoucle
+	mov r0, #0
+	mov r1, #0
+	
+	smlal r1, r0, r8, r8 ;Xreel au carré   : sur 64
+	smlal r1, r0, r9, r9 ;Xim au carré     : sur 64
+	
+	
+	pop {r4-r11}
 	bx lr
 	endp
-
-;		int Xr=0; int Xi=0; 
-;		int ent=0; 
-;		int flot=0; int  aux=0;
-  
-  
-;			aux=Signal64ech[n]*TabCos[nk]; 
-;			
-;			
-;			ent=
-;			Xr+=Signal64ech[n]*TabCos[nk]; 
-;			Xi+=Signal64ech[n]*TabSin[nk];
-;		
-;		} 
-;		return Xr*Xr+Xi*Xi;
-;	
-;}	
 
 
 
